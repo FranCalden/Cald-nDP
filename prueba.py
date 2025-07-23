@@ -180,19 +180,28 @@ sin_fecha = df_original['fecha_guia'].isna().sum()
 total_filtrado = len(df)
 total_general = len(df_original)
 
-# KPIs
+# --- KPIs ---
+# Calcular porcentajes
+porc_sin_mov_30 = (sin_mov_30 / total_vehiculos * 100) if total_vehiculos > 0 else 0
+porc_sin_mov_180 = (sin_mov_180 / total_vehiculos * 100) if total_vehiculos > 0 else 0
+porc_mayores_10 = (mayores_10 / total_vehiculos * 100) if total_vehiculos > 0 else 0
+
 k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("📦 Total vehículos", total_vehiculos)
-k2.metric("🕒 Sin mov. > 30 días", sin_mov_30)
-k3.metric("⛔️ Sin mov. > 180 días", sin_mov_180)
+k2.metric("🕒 Sin mov. > 30 días", f"{porc_sin_mov_30:.0f}% ({sin_mov_30})")
+k3.metric("⛔️ Sin mov. > 180 días", f"{porc_sin_mov_180:.0f}% ({sin_mov_180})")
 k4.metric("🗕 Prom. antigüedad", f"{prom_antig:.1f} años")
-k5.metric("🚨 >10 años", mayores_10)
+k5.metric("🚨 >10 años", f"{porc_mayores_10:.0f}% ({mayores_10})")
 
-k6, k7, k8, k9, k10 = st.columns(5)
+porc_nuevos = (nuevos / total_vehiculos * 100) if total_vehiculos > 0 else 0
+
+# Segunda fila de KPIs
+k6, k7, k8, k9 = st.columns(4)
 k6.metric("⚠️ Críticos", criticos)
-k7.metric("🚛 % Camiones (BAL+)", f"{porcentaje_camiones:.0f}%")
-k8.metric("🆕 2023+", nuevos)
+k7.metric("🚛 % Camiones", f"{porcentaje_camiones:.0f}%")
+k8.metric("🆕 2023+", f"{porc_nuevos:.0f}% ({nuevos})")
 k9.metric("❓ Sin fecha guía", sin_fecha)
+
 
 # --- Gráficos ---
 # --- Gráficos de inactividad ---
