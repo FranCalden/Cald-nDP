@@ -82,7 +82,7 @@ df['antiguedad'] = hoy.year - df['modelo']
 # --- Filtros laterales ---
 with st.sidebar:
     st.image("icono/calden.ico", width=64)
-    st.markdown("## 🚛 Don Pedro - Vehículos")
+    st.markdown("## 🚛 Caldén Control - Vehículos")
     st.markdown("Monitoreo y análisis de flota según actividad, tipo, modelo y estado.")
     st.markdown("---")
 
