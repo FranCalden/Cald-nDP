@@ -195,9 +195,26 @@ k8.metric("🆕 2023+", nuevos)
 k9.metric("❓ Sin fecha guía", sin_fecha)
 
 # --- Gráficos ---
-with st.expander("📊 Distribuciones", expanded=True):
+# --- Gráficos de inactividad ---
+st.markdown("---")
+with st.expander("📊 Vehículos con inactividad 30 & 60 días", expanded=True):
     tipos_especiales = ['BAL', 'BAT', 'CHA', 'DOB', 'HID', 'KON', 'MAR', 'SIM']
 
+    df_30 = df_original[df_original['fecha_guia'] < hoy - timedelta(days=30)]
+    df_30 = df_30[df_30['tipo_limpio'].isin(tipos_especiales)]
+    fig_30 = px.pie(df_30, names='tipo_limpio', title="🔸 Inactivos >30 días")
+
+    df_60 = df_original[df_original['fecha_guia'] < hoy - timedelta(days=60)]
+    df_60 = df_60[df_60['tipo_limpio'].isin(tipos_especiales)]
+    fig_60 = px.pie(df_60, names='tipo_limpio', title="🔸 Inactivos >60 días")
+
+    c1, c2 = st.columns(2)
+    c1.plotly_chart(fig_30, use_container_width=True)
+    c2.plotly_chart(fig_60, use_container_width=True)
+
+# --- Gráficos de distribución ---
+st.markdown("---")
+with st.expander("📊 Distribuciones", expanded=True):
     df_con_guia = df[df['tipo_limpio'].isin(tipos_especiales) & df['fecha_guia'].notna()]
     fig_con_guia = px.pie(df_con_guia, names='tipo_limpio', title="✅ Con guía (BAL, BAT, etc.)")
 
@@ -210,24 +227,6 @@ with st.expander("📊 Distribuciones", expanded=True):
     col1.plotly_chart(fig_con_guia, use_container_width=True)
     col2.plotly_chart(fig_sin_guia, use_container_width=True)
     col3.plotly_chart(fig_estado, use_container_width=True)
-
-    # Gráficos adicionales por inactividad
-    df_30 = df[df['fecha_guia'] < hoy - timedelta(days=30)]
-    df_60 = df[df['fecha_guia'] < hoy - timedelta(days=60)]
-
-    if not df_30.empty or not df_60.empty:
-        st.markdown("### 🕒 Vehículos con inactividad prolongada")
-
-        col4, col5 = st.columns(2)
-
-        if not df_30.empty:
-            fig_30 = px.pie(df_30, names='tipo_limpio', title="🔸 Inactivos >30 días por tipo")
-            col4.plotly_chart(fig_30, use_container_width=True)
-
-        if not df_60.empty:
-            fig_60 = px.pie(df_60, names='tipo_limpio', title="🔴 Inactivos >60 días por tipo")
-            col5.plotly_chart(fig_60, use_container_width=True)
-
 
 # --- Mantenimiento y vencimientos ---
 st.markdown("---")
