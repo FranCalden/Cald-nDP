@@ -3,13 +3,58 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 
+# --- LOGIN ---
+def cargar_usuarios():
+    url = "https://raw.githubusercontent.com/FranCalden/Cald-nDP/main/usuarios.xlsx"
+    df = pd.read_excel(url)
+    df.columns = df.columns.str.lower().str.strip()
+    return df
+
+def verificar(usuario, clave, df):
+    if usuario in df['usuario'].values:
+        clave_real = df[df['usuario'] == usuario]['contraseña'].values[0]
+        return str(clave) == str(clave_real)
+    return False
+
+def registrar_activo(usuario):
+    archivo = "usuarios_activos.csv"
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    nuevo = pd.DataFrame([[usuario, ahora]], columns=["usuario", "hora"])
+    try:
+        df = pd.read_csv(archivo)
+        df = df[df['usuario'] != usuario]
+        df = pd.concat([df, nuevo], ignore_index=True)
+    except:
+        df = nuevo
+    df.to_csv(archivo, index=False)
+
+# --- Control de sesión ---
+if 'logueado' not in st.session_state:
+    st.session_state.logueado = False
+    st.session_state.usuario = ""
+
+if not st.session_state.logueado:
+    st.set_page_config(page_title="DEMO DASHBOARD - CALDÉN", layout="wide", page_icon="🚛")
+    st.title("🔐 Acceso al Dashboard")
+    u = st.text_input("Usuario")
+    p = st.text_input("Contraseña", type="password")
+    if st.button("Ingresar"):
+        df_usuarios = cargar_usuarios()
+        if verificar(u, p, df_usuarios):
+            st.session_state.logueado = True
+            st.session_state.usuario = u
+            registrar_activo(u)
+            st.rerun()
+        else:
+            st.error("Usuario o contraseña incorrectos.")
+    st.stop()
+
 # --- Configuración del dashboard ---
-st.set_page_config(page_title="Dashboard DEMO - Caldén", layout="wide", page_icon="🚛")
+st.set_page_config(page_title="DEMO DASHBOARD - CALDÉN", layout="wide", page_icon="🚛")
 
 # --- Cargar datos originales ---
 url_excel = "https://raw.githubusercontent.com/FranCalden/Cald-nDP/main/WGCP143.xlsx"
 df_original = pd.read_excel(url_excel)
-
 
 # --- Preprocesamiento ---
 df_original.columns = df_original.columns.str.strip().str.lower()
@@ -68,13 +113,30 @@ with st.sidebar:
             default=años_disponibles
         )
 
-    # 🔍 Búsqueda por dominio (patente)
     st.markdown("---")
     busqueda_dominio = st.text_input("🔍 Buscar por dominio (patente)")
 
-    # Total general
     st.markdown("---")
-    st.sidebar.metric("📦 Total general (sin filtros)", len(df_original))
+    st.metric("📦 Total general (sin filtros)", len(df_original))
+
+    # --- Usuario logueado y conectados ---
+    st.markdown("---")
+    st.markdown(f"👤 Usuario conectado: **{st.session_state.usuario}**")
+
+    try:
+        df_activos = pd.read_csv("usuarios_activos.csv")
+        df_activos['hora'] = pd.to_datetime(df_activos['hora'])
+        ahora = datetime.now()
+        conectados = df_activos[df_activos['hora'] > ahora - timedelta(minutes=30)]
+        otros = conectados[conectados['usuario'] != st.session_state.usuario]
+
+        st.markdown("### 🟢 Otros conectados")
+        for u in otros['usuario'].unique():
+            st.markdown(f"- {u}")
+        if otros.empty:
+            st.markdown("*Nadie más conectado*")
+    except:
+        st.markdown("*No se pudo leer usuarios activos*")
 
 # --- Aplicar filtros ---
 df = df[df['modelo'].isin(años_seleccionados)]
@@ -92,77 +154,41 @@ st.markdown("---")
 
 # --- KPIs visuales ---
 st.markdown("### 📈 Indicadores clave")
-
-# 1. Total activos
 activos = df_original[~df_original['estado'].str.lower().isin(['baja', 'fuera de servicio', 'inactivo'])]
 total_activos = len(activos)
-
-# 2. Sin movimiento > 30 días
 sin_mov_30 = df[df['fecha_guia'] < hoy - timedelta(days=30)].shape[0]
-
-# 3. Sin movimiento > 180 días
 sin_mov_180 = df[df['fecha_guia'] < hoy - timedelta(days=180)].shape[0]
-
-# 4. Promedio antigüedad
 prom_antig = df['antiguedad'].mean()
-
-# 5. >10 años
 mayores_10 = df[df['antiguedad'] > 10].shape[0]
-
-# 6. Estado crítico
 criticos = df[df['estado'].str.contains("revisar|vencida", case=False, na=False)].shape[0]
-
-# 7. % por tipo
 camiones = df[df['tipo_limpio'].str.lower().str.contains("camion")].shape[0]
 porcentaje_camiones = (camiones / len(df) * 100) if len(df) > 0 else 0
-
-# 8. Modelo recientes (2023+)
 nuevos = df[df['modelo'] >= 2023].shape[0]
-
-# 9. Sin fecha guía
 sin_fecha = df['fecha_guia'].isna().sum()
-
-# 10. Comparativa filtrado
 total_filtrado = len(df)
 total_general = len(df_original)
 
-# Primera fila
 k1, k2, k3, k4, k5 = st.columns(5)
-with k1:
-    st.metric("✅ Activos", total_activos)
-with k2:
-    st.metric("🕒 Sin mov. > 30 días", sin_mov_30)
-with k3:
-    st.metric("⛔️ Sin mov. > 180 días", sin_mov_180)
-with k4:
-    st.metric("📅 Prom. antigüedad", f"{prom_antig:.1f} años")
-with k5:
-    st.metric("🚨 >10 años", mayores_10)
+k1.metric("✅ Activos", total_activos)
+k2.metric("🕒 Sin mov. > 30 días", sin_mov_30)
+k3.metric("⛔️ Sin mov. > 180 días", sin_mov_180)
+k4.metric("📅 Prom. antigüedad", f"{prom_antig:.1f} años")
+k5.metric("🚨 >10 años", mayores_10)
 
-# Segunda fila
 k6, k7, k8, k9, k10 = st.columns(5)
-with k6:
-    st.metric("⚠️ Críticos", criticos)
-with k7:
-    st.metric("🚛 % Camiones", f"{porcentaje_camiones:.0f}%")
-with k8:
-    st.metric("🆕 2023+", nuevos)
-with k9:
-    st.metric("❓ Sin fecha guía", sin_fecha)
-with k10:
-    st.metric("🔍 Filtrados", f"{total_filtrado} / {total_general}")
+k6.metric("⚠️ Críticos", criticos)
+k7.metric("🚛 % Camiones", f"{porcentaje_camiones:.0f}%")
+k8.metric("🆕 2023+", nuevos)
+k9.metric("❓ Sin fecha guía", sin_fecha)
+k10.metric("🔍 Filtrados", f"{total_filtrado} / {total_general}")
 
-# --- Gráficos de torta ---
+# --- Gráficos ---
 with st.expander("📊 Distribuciones", expanded=True):
     col1, col2 = st.columns(2)
-    with col1:
-        fig_tipo = px.pie(df, names='tipo_limpio', title="Distribución por tipo de vehículo")
-        fig_tipo.update_layout(width=500, height=500)
-        st.plotly_chart(fig_tipo, use_container_width=True)
-    with col2:
-        fig_estado = px.pie(df, names='estado', title="Distribución por estado")
-        fig_estado.update_layout(width=500, height=500)
-        st.plotly_chart(fig_estado, use_container_width=True)
+    fig_tipo = px.pie(df, names='tipo_limpio', title="Distribución por tipo de vehículo")
+    fig_estado = px.pie(df, names='estado', title="Distribución por estado")
+    col1.plotly_chart(fig_tipo, use_container_width=True)
+    col2.plotly_chart(fig_estado, use_container_width=True)
 
 # --- Mantenimiento y vencimientos ---
 st.markdown("---")
@@ -181,7 +207,7 @@ with st.expander("🔧 Mantenimiento y Vencimientos", expanded=True):
         st.warning(f"⚠️ {len(estados_criticos)} vehículo(s) con estado crítico detectado.")
         st.dataframe(estados_criticos[['dominio', 'modelo', 'tipo', 'estado']])
 
-# --- Mapa (si hay coordenadas) ---
+# --- Mapa ---
 st.markdown("---")
 with st.expander("🗺 Mapa Interactivo (si hay coordenadas)", expanded=False):
     if 'latitud' in df.columns and 'longitud' in df.columns:
