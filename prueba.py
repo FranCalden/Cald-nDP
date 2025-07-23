@@ -185,6 +185,9 @@ total_general = len(df_original)
 porc_sin_mov_30 = (sin_mov_30 / total_vehiculos * 100) if total_vehiculos > 0 else 0
 porc_sin_mov_180 = (sin_mov_180 / total_vehiculos * 100) if total_vehiculos > 0 else 0
 porc_mayores_10 = (mayores_10 / total_vehiculos * 100) if total_vehiculos > 0 else 0
+porc_criticos = (criticos / total_vehiculos * 100) if total_vehiculos > 0 else 0
+porc_sin_fecha = (sin_fecha / total_vehiculos * 100) if total_vehiculos > 0 else 0
+
 
 k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("📦 Total vehículos", total_vehiculos)
@@ -197,10 +200,10 @@ porc_nuevos = (nuevos / total_vehiculos * 100) if total_vehiculos > 0 else 0
 
 # Segunda fila de KPIs
 k6, k7, k8, k9 = st.columns(4)
-k6.metric("⚠️ Críticos", criticos)
+k6.metric("⚠️ Críticos", f"{porc_criticos:.0f}% ({criticos})")
 k7.metric("🚛 % Camiones", f"{porcentaje_camiones:.0f}%")
 k8.metric("🆕 2023+", f"{porc_nuevos:.0f}% ({nuevos})")
-k9.metric("❓ Sin fecha guía", sin_fecha)
+k9.metric("❓ Sin fecha guía", f"{porc_sin_fecha:.0f}% ({sin_fecha})")
 
 
 # --- Gráficos ---
