@@ -4,7 +4,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 
 # --- Configuración del dashboard ---
-st.set_page_config(page_title="prueba", layout="wide", page_icon="🚛")
+st.set_page_config(page_title="Dashboard DEMO - Caldén", layout="wide", page_icon="🚛")
 
 # --- Cargar datos originales ---
 url_excel = "https://raw.githubusercontent.com/FranCalden/Cald-nDP/main/WGCP143.xlsx"
