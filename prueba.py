@@ -34,7 +34,7 @@ if 'logueado' not in st.session_state:
     st.session_state.usuario = ""
 
 if not st.session_state.logueado:
-    st.set_page_config(page_title="DEMO DASHBOARD - CALDÉN", layout="wide", page_icon="🚛")
+    st.set_page_config(page_title="LOCAL DASHBOARD - CALDÉN", layout="wide", page_icon="🚛")
     st.title("🔐 Acceso al Dashboard")
     u = st.text_input("Usuario")
     p = st.text_input("Contraseña", type="password")
@@ -86,7 +86,7 @@ with st.sidebar:
     st.markdown("Monitoreo y análisis de flota según actividad, tipo, modelo y estado.")
     st.markdown("---")
 
-    with st.expander("📅 Filtro por inactividad", expanded=True):
+    with st.expander("🗕️ Filtro por inactividad", expanded=True):
         dias_inactividad = st.radio(
             "Mostrar vehículos sin movimiento por:",
             [0, 30, 60],
@@ -95,7 +95,8 @@ with st.sidebar:
 
     with st.expander("🚗 Filtro por tipo de vehículo", expanded=True):
         tipos_disponibles = sorted(df['tipo'].dropna().unique())
-        default_tipo = [op for op in tipos_disponibles if "camion" in op.lower()]
+        tipos_especiales = ['BAL', 'BAT', 'CHA', 'DOB', 'HID', 'KON', 'MAR', 'SIM']
+        default_tipo = [op for op in tipos_disponibles if any(op.startswith(prefijo) for prefijo in tipos_especiales)]
         if not default_tipo:
             default_tipo = tipos_disponibles
 
@@ -119,7 +120,6 @@ with st.sidebar:
     st.markdown("---")
     st.metric("📦 Total general (sin filtros)", len(df_original))
 
-    # --- Usuario logueado y conectados ---
     st.markdown("---")
     st.markdown(f"👤 Usuario conectado: **{st.session_state.usuario}**")
 
@@ -154,41 +154,80 @@ st.markdown("---")
 
 # --- KPIs visuales ---
 st.markdown("### 📈 Indicadores clave")
-activos = df_original[~df_original['estado'].str.lower().isin(['baja', 'fuera de servicio', 'inactivo'])]
-total_activos = len(activos)
-sin_mov_30 = df[df['fecha_guia'] < hoy - timedelta(days=30)].shape[0]
-sin_mov_180 = df[df['fecha_guia'] < hoy - timedelta(days=180)].shape[0]
-prom_antig = df['antiguedad'].mean()
-mayores_10 = df[df['antiguedad'] > 10].shape[0]
-criticos = df[df['estado'].str.contains("revisar|vencida", case=False, na=False)].shape[0]
-camiones = df[df['tipo_limpio'].str.lower().str.contains("camion")].shape[0]
-porcentaje_camiones = (camiones / len(df) * 100) if len(df) > 0 else 0
-nuevos = df[df['modelo'] >= 2023].shape[0]
-sin_fecha = df['fecha_guia'].isna().sum()
+
+# KPI: Total vehículos
+total_vehiculos = len(df_original)
+
+# KPI: % camiones de tipo especial
+camiones_especiales = ['BAL', 'BAT', 'CHA', 'DOB', 'HID', 'KON', 'MAR', 'SIM']
+df_original['tipo_limpio'] = df_original['tipo'].str.extract(r'^(.*?)-')
+df_original['tipo_limpio'] = df_original['tipo_limpio'].fillna(df_original['tipo'])
+camiones_df = df_original[df_original['tipo_limpio'].isin(camiones_especiales)]
+porcentaje_camiones = (len(camiones_df) / total_vehiculos * 100) if total_vehiculos > 0 else 0
+
+# KPI: 2023 o más
+nuevos = df_original[df_original['modelo'] >= 2023].shape[0]
+
+# Otros KPIs
+df_original['antiguedad'] = hoy.year - df_original['modelo']
+df_original['antiguedad'] = df_original['antiguedad'].replace([float('inf'), -float('inf')], pd.NA)
+prom_antig = df_original['antiguedad'].dropna().mean()
+mayores_10 = df_original[df_original['antiguedad'] > 10].shape[0]
+criticos = df_original[df_original['estado'].str.contains("revisar|vencida", case=False, na=False)].shape[0]
+sin_mov_30 = df_original[df_original['fecha_guia'] < hoy - timedelta(days=30)].shape[0]
+sin_mov_180 = df_original[df_original['fecha_guia'] < hoy - timedelta(days=180)].shape[0]
+sin_fecha = df_original['fecha_guia'].isna().sum()
 total_filtrado = len(df)
 total_general = len(df_original)
 
+# KPIs
 k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("✅ Activos", total_activos)
+k1.metric("📦 Total vehículos", total_vehiculos)
 k2.metric("🕒 Sin mov. > 30 días", sin_mov_30)
 k3.metric("⛔️ Sin mov. > 180 días", sin_mov_180)
-k4.metric("📅 Prom. antigüedad", f"{prom_antig:.1f} años")
+k4.metric("🗕 Prom. antigüedad", f"{prom_antig:.1f} años")
 k5.metric("🚨 >10 años", mayores_10)
 
 k6, k7, k8, k9, k10 = st.columns(5)
 k6.metric("⚠️ Críticos", criticos)
-k7.metric("🚛 % Camiones", f"{porcentaje_camiones:.0f}%")
+k7.metric("🚛 % Camiones (BAL+)", f"{porcentaje_camiones:.0f}%")
 k8.metric("🆕 2023+", nuevos)
 k9.metric("❓ Sin fecha guía", sin_fecha)
-k10.metric("🔍 Filtrados", f"{total_filtrado} / {total_general}")
 
 # --- Gráficos ---
 with st.expander("📊 Distribuciones", expanded=True):
-    col1, col2 = st.columns(2)
-    fig_tipo = px.pie(df, names='tipo_limpio', title="Distribución por tipo de vehículo")
-    fig_estado = px.pie(df, names='estado', title="Distribución por estado")
-    col1.plotly_chart(fig_tipo, use_container_width=True)
-    col2.plotly_chart(fig_estado, use_container_width=True)
+    tipos_especiales = ['BAL', 'BAT', 'CHA', 'DOB', 'HID', 'KON', 'MAR', 'SIM']
+
+    df_con_guia = df[df['tipo_limpio'].isin(tipos_especiales) & df['fecha_guia'].notna()]
+    fig_con_guia = px.pie(df_con_guia, names='tipo_limpio', title="✅ Con guía (BAL, BAT, etc.)")
+
+    df_sin_guia = df[df['tipo_limpio'].isin(tipos_especiales) & df['fecha_guia'].isna()]
+    fig_sin_guia = px.pie(df_sin_guia, names='tipo_limpio', title="❌ Sin guía (BAL, BAT, etc.)")
+
+    fig_estado = px.pie(df, names='estado', title="📋 Distribución por estado")
+
+    col1, col2, col3 = st.columns(3)
+    col1.plotly_chart(fig_con_guia, use_container_width=True)
+    col2.plotly_chart(fig_sin_guia, use_container_width=True)
+    col3.plotly_chart(fig_estado, use_container_width=True)
+
+    # Gráficos adicionales por inactividad
+    df_30 = df[df['fecha_guia'] < hoy - timedelta(days=30)]
+    df_60 = df[df['fecha_guia'] < hoy - timedelta(days=60)]
+
+    if not df_30.empty or not df_60.empty:
+        st.markdown("### 🕒 Vehículos con inactividad prolongada")
+
+        col4, col5 = st.columns(2)
+
+        if not df_30.empty:
+            fig_30 = px.pie(df_30, names='tipo_limpio', title="🔸 Inactivos >30 días por tipo")
+            col4.plotly_chart(fig_30, use_container_width=True)
+
+        if not df_60.empty:
+            fig_60 = px.pie(df_60, names='tipo_limpio', title="🔴 Inactivos >60 días por tipo")
+            col5.plotly_chart(fig_60, use_container_width=True)
+
 
 # --- Mantenimiento y vencimientos ---
 st.markdown("---")
@@ -209,7 +248,7 @@ with st.expander("🔧 Mantenimiento y Vencimientos", expanded=True):
 
 # --- Mapa ---
 st.markdown("---")
-with st.expander("🗺 Mapa Interactivo (si hay coordenadas)", expanded=False):
+with st.expander("📽 Mapa Interactivo (si hay coordenadas)", expanded=False):
     if 'latitud' in df.columns and 'longitud' in df.columns:
         df['latitud'] = pd.to_numeric(df['latitud'], errors='coerce')
         df['longitud'] = pd.to_numeric(df['longitud'], errors='coerce')
@@ -241,7 +280,7 @@ with st.expander("📋 Detalle General de Vehículos", expanded=False):
     st.markdown("Tabla completa de vehículos filtrados según inactividad, año de modelo y tipo seleccionado.")
     st.dataframe(df)
     st.download_button(
-        "📥 Exportar CSV",
+        "📅 Exportar CSV",
         data=df.to_csv(index=False).encode('utf-8'),
         file_name=f"vehiculos_filtrados_{hoy.strftime('%Y%m%d')}.csv",
         mime='text/csv'
